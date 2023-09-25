@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+<!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
+<!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
+<!--[if gt IE 8]>      <html class="no-js"> <!--<![endif]-->
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Linguisize</title>
+    <meta name="description" content="">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Gentium+Book+Plus&display=swap" rel="stylesheet">
+  </head>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    .paragraph {
+      /* display: flex; */
+      align-items: center;
+      max-width: 100%;
+      flex-wrap: wrap;
+    }
+
+    h1 {
+      width: 100%;
+      text-align: center;
+    }
+
+    .page {
+      margin: 2em auto;
+      width: 100%;
+      max-width: 900px;
+      padding: 3em 5em;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      /* aspect-ratio: 1 / 1.414; */
+      background: white;
+      position: relative;
+      text-align: justify;
+    }
+
+    .page-number {
+      position: absolute;
+      bottom: 2em;
+      right: 2em;
+      /* text-align: center; */
+      color: #777;
+      font-size: 0.8em;
+    }
+
+    body {
+      background: #f5f5f5;
+      font-family: 'Gentium Book Plus', serif;
+    }
+
+    .control-row {
+      display: flex;
+      align-items: center;
+    }
+
+    .control-row > * {
+      margin: 0 0.5em;
+    }
+
+  </style>
+  <body>
+    <!--[if lt IE 7]>
+      <p class="browsehappy">You are using an <strong>outdated</strong> browser. Please <a href="#">upgrade your browser</a> to improve your experience.</p>
+    <![endif]-->
+
+    <div class="controls">
+      <div class="control-row">
+        <label for="page-number">Page number</label>
+        <select name="page-number" id="page-number">
+          <option value="" disabled selected>Select</option>
+        </select>
+      </div>
+      <div class="control-row">
+        <label for="min-font-size">Minimum font size</label>
+        <input type="range" name="min-font-size" id="min-font-size" min="1" max="100" value="10" />
+        <div id="min-font-value"></div>
+      </div>
+      <div class="control-row">
+        <label for="max-font-size">Maximum font size</label>
+        <input type="range" name="max-font-size" id="max-font-size" min="1" max="100" value="20" />
+        <div id="max-font-value"></div>
+      </div>
+      <div class="control-row">
+        <label for="exponent">Exponent</label>
+        <input type="range" name="exponent" id="exponent" min="-100" max="100" value="-4" />
+        <div id="exponent-value"></div>
+      </div>
+      <div class="control-row">
+        <label for="split-point">Split point</label>
+        <input type="range" name="split-point" id="split-point" min="1" max="1000" value="400" />
+        <div id="split-point-value"></div>
+      </div>
+    </div>
+    <div id="container"></div>
+    <script src="script/freqdict.js"></script>
+    <script src="script/pap.js"></script>
+    <script src="script/linguisize.js"></script>
+    <script>
+      const pageContainerId = 'container';
+      let pageToLoad = '{236}';
+      const pageLoader = new PageLoader(frequencyDict, storyOutline, "Pride and Prejudice", pageContainerId);
+      // pageLoader.loadPage(pageToLoad);
+
+      const minFontSizeInput = document.getElementById('min-font-size');
+      const maxFontSizeInput = document.getElementById('max-font-size');
+      const exponentInput = document.getElementById('exponent');
+      const splitPointInput = document.getElementById('split-point');
+      const pageNumberSelect = document.getElementById('page-number');
+
+      const minFontSizeValue = document.getElementById('min-font-value');
+      const maxFontSizeValue = document.getElementById('max-font-value');
+      const exponentValue = document.getElementById('exponent-value');
+      const splitPointValue = document.getElementById('split-point-value');
+
+      const pageNumbers = new Set();
+      for (let i = 0; i < storyOutline.length; i++) {
+        const pages = storyOutline[i].pageOrder;
+        for (let j = 0; j < pages.length; j++) {
+          pageNumbers.add(pages[j]);
+        }
+      }
+      for (let pageNumber of pageNumbers) {
+        const option = document.createElement('option');
+        option.value = pageNumber;
+        option.innerText = pageNumber;
+        pageNumberSelect.appendChild(option);
+      }
+
+
+      pageNumberSelect.addEventListener('change', (event) => {
+        // pageLoader.loadPage(event.target.value);
+        pageToLoad = event.target.value;
+        pageLoader.loadSomePages(pageToLoad);
+      });
+
+      minFontSizeInput.addEventListener('change', (event) => {
+        pageLoader.setMinFontSize(event.target.value / 10);
+        minFontSizeValue.innerText = event.target.value / 10;
+        pageLoader.loadSomePages(pageToLoad);
+      });
+
+      maxFontSizeInput.addEventListener('change', (event) => {
+        pageLoader.setMaxFontSize(event.target.value / 10);
+        maxFontSizeValue.innerText = event.target.value / 10;
+        pageLoader.loadSomePages(pageToLoad);
+      });
+
+      exponentInput.addEventListener('change', (event) => {
+        pageLoader.setExponent(event.target.value);
+        exponentValue.innerText = event.target.value;
+        console.log(event.target.value);
+        pageLoader.loadSomePages(pageToLoad);
+      });
+
+      splitPointInput.addEventListener('change', (event) => {
+        pageLoader.setSplitPoint(event.target.value / 1000);
+        splitPointValue.innerText = event.target.value / 1000;
+        pageLoader.loadSomePages(pageToLoad);
+      });
+
+      pageLoader.setMinFontSize(minFontSizeInput.value / 10);
+      pageLoader.setMaxFontSize(maxFontSizeInput.value / 10);
+      pageLoader.setExponent(exponentInput.value);
+      pageLoader.setSplitPoint(splitPointInput.value / 1000);
+
+      minFontSizeValue.innerText = minFontSizeInput.value / 10;
+      maxFontSizeValue.innerText = maxFontSizeInput.value / 10;
+      exponentValue.innerText = exponentInput.value;
+      splitPointValue.innerText = splitPointInput.value / 1000;
+
+      // pageLoader.loadPage(pageToLoad);
+      pageLoader.loadSomePages(pageToLoad);
+    </script>
+  </body>
+</html>
