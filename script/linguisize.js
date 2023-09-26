@@ -10,6 +10,20 @@ class PageLoader {
     this.exponent = 5; // Adjust this to control the exponential scaling
     this.splitPoint = 0.5; // Adjust this to control where the exponential scaling starts
     this.lastLoadedPage = 0;
+
+    const pageNumbers = new Set();
+    for (let i = 0; i < storyOutline.length; i++) {
+      const pages = storyOutline[i].pageOrder.map(p => (p + ''));
+      for (let j = 0; j < pages.length; j++) {
+        pageNumbers.add(pages[j]);
+      }
+    }
+    this.pageNumbers = [...pageNumbers];
+
+    const pageNumberTotalElement = document.getElementById('page-number-total');
+    if (pageNumberTotalElement) {
+      pageNumberTotalElement.innerText = this.pageNumbers.length;
+    }
   }
 
   setMinFontSize(minFontSize) {
@@ -23,14 +37,32 @@ class PageLoader {
   }
 
   setExponent(exponent) {
-    this.exponent = exponent;
+    this.exponent = exponent/100;
     // if (this.lastLoadedPage != 0) this.loadPage(this.lastLoadedPage);
   }
 
   setSplitPoint(splitPoint) {
-    this.splitPoint = splitPoint;
+    this.splitPoint = Math.max(splitPoint / 100, this._getNormalisedFrequency(this.frequencyBoundaries.minFrequency));
     this.frequencyBoundaries = this._findMinMaxFrequency();
     // if (this.lastLoadedPage != 0) this.loadPage(this.lastLoadedPage);
+  }
+
+  nextPage() {
+    if (this.lastLoadedPage != 0) {
+      let lastLoadedPageIndex = this.pageNumbers.indexOf(this.lastLoadedPage);
+      if (lastLoadedPageIndex < this.pageNumbers.length - 1) {
+        this.loadSomePages(this.pageNumbers[lastLoadedPageIndex + 1], 1);
+      }
+    }
+  }
+
+  prevPage() {
+    if (this.lastLoadedPage != 0) {
+      let lastLoadedPageIndex = this.pageNumbers.indexOf(this.lastLoadedPage);
+      if (lastLoadedPageIndex > 0) {
+        this.loadSomePages(this.pageNumbers[lastLoadedPageIndex - 1], 1);
+      }
+    }
   }
 
   _findMinMaxFrequency() {
@@ -59,7 +91,7 @@ class PageLoader {
 
     const pageNumbers = new Set();
     for (let i = 0; i < storyOutline.length; i++) {
-      const pages = storyOutline[i].pageOrder;
+      const pages = storyOutline[i].pageOrder.map(p => (p + ''));
       for (let j = 0; j < pages.length; j++) {
         pageNumbers.add(pages[j]);
       }
@@ -77,7 +109,7 @@ class PageLoader {
 
     const pageNumbers = new Set();
     for (let i = 0; i < storyOutline.length; i++) {
-      const pages = storyOutline[i].pageOrder;
+      const pages = storyOutline[i].pageOrder.map(p => (p + ''));
       for (let j = 0; j < pages.length; j++) {
         pageNumbers.add(pages[j]);
       }
@@ -93,6 +125,11 @@ class PageLoader {
 
   loadPage(pageNumber) {
     this.lastLoadedPage = pageNumber;
+    const pageNumberSelectElement = document.getElementById('page-number-select');
+    if (pageNumberSelectElement) {
+      pageNumberSelectElement.value = pageNumber;
+    }
+
     const pageChapterIndices = this._findPageChapterIndices(pageNumber);
     if (pageChapterIndices.length === 0) {
       throw new Error(`Page ${pageNumber} not found in story ${this.storyName}`);
@@ -161,9 +198,14 @@ class PageLoader {
       let wordLowerCase = word.toLowerCase();
       let wordSpan = document.createElement('span');
       wordSpan.innerText = word;
-      wordSpan.setAttribute('title', `${this._getNormalisedFrequency(this.frequencyDict[wordLowerCase])} - ${this.frequencyDict[wordLowerCase]}`);
+      wordSpan.setAttribute('title', `Frequency: ${this.frequencyDict[wordLowerCase]}`);
       wordSpan.dataset.frequency = this.frequencyDict[wordLowerCase];
+      if (!this.frequencyDict[wordLowerCase]) {
+        console.log(`Word ${wordLowerCase} not found in frequency dictionary`);
+      }
       wordSpan.style.fontSize = `${this._getFontSizeFromFrequency(this.frequencyDict[wordLowerCase])}em`;
+      // wordSpan.style.color = `hsl(${220 + this.splitPoint * 120}deg, ${this._getScaledFrequency(this.frequencyDict[wordLowerCase]) * 100}%, ${40 + 10 * this._getScaledFrequency(this.frequencyDict[wordLowerCase])}%)`;
+      wordSpan.style.color = `hsl(0, 0%, ${40 - this._getScaledFrequency(this.frequencyDict[wordLowerCase]) * 40}%)`;
       // wordSpan.style.marginLeft = `${Math.max(0.5, this._getFontSizeFromFrequency(this.frequencyDict[wordLowerCase]) / 20)}em`;
       let tempSpanContainer = document.createElement('div');
       tempSpanContainer.appendChild(wordSpan);
@@ -196,7 +238,7 @@ class PageLoader {
     let chapterFound = false;
     for (let i = 0; i < this.storyOutline.length; i++) {
       let chapter = this.storyOutline[i];
-      if (chapter.pageOrder.includes(pageNumber)) {
+      if (chapter.pageOrder.map(p => (p + '')).includes(pageNumber)) {
         pageChapterIndices.push(i);
         chapterFound = true;
       } else if (chapterFound) {
@@ -224,18 +266,48 @@ class PageLoader {
     }
   }
 
+  _getScaledFrequency(frequency) {
+    const x = this._getNormalisedFrequency(frequency);
+    if (x > this.splitPoint || x == 0) {
+      return -1 * ((2 * x - 2 * this.splitPoint)/(2 - 2 * this.splitPoint)) ** this.exponent + 1
+    } else {
+      return -1 * ((2 * this.splitPoint - 2 * x)/(2 * this.splitPoint)) ** this.exponent + 1
+    }
+  }
+
+  _getNormalisedFactor(frequency) {
+    const factor = this._getScaledFrequency(frequency);
+    const maxFactor = this._getScaledFrequency(this.frequencyBoundaries.maxFrequency * this.splitPoint);
+    const minFactor = this._getScaledFrequency(this.frequencyBoundaries.minFrequency);
+    const normalisedFactor = (factor - minFactor) / (maxFactor - minFactor);
+    return normalisedFactor;
+  }
+
+  getTestFrequencyFactorSamples({ testFrequencies, testSplitPoint} = {}) {
+    let tempSplitPoint = this.splitPoint;
+    this.splitPoint = testSplitPoint || this.splitPoint;
+    let frequencySamples = [];
+    console.log(`Test case for split point ${this.splitPoint}`)
+    console.log(`Frequency - Normalised Frequency - Scaled Frequency - Normalised Factor`)
+    for (let i = 0; i <= 10; i++) {
+      let frequency = this.frequencyBoundaries.minFrequency + (this.frequencyBoundaries.maxFrequency - this.frequencyBoundaries.minFrequency) * i / 10;
+      frequencySamples.push(frequency);
+    }
+    frequencySamples = frequencySamples.concat(testFrequencies || []);
+    frequencySamples.sort((a, b) => a - b);
+    frequencySamples.forEach(frequency => {
+      const normalisedFrequency = this._getNormalisedFrequency(frequency);
+      const scaledFrequency = this._getScaledFrequency(frequency);
+      const normalisedFactor = this._getNormalisedFactor(frequency);
+      console.log(`${frequency} - ${normalisedFrequency} - ${scaledFrequency} - ${normalisedFactor}`);
+    })
+    this.splitPoint = tempSplitPoint;
+    // return frequencySamples;
+  }
+
   _getFontSizeFromFrequency(frequency) {
-    // the smaller the frequency, the larger the font size
-    // font size should be between 1em and 3em
-    let normalisedFrequency = this._getNormalisedFrequency(frequency);
-    if (this.exponent > 0) normalisedFrequency = 1 - normalisedFrequency;
-
-    normalisedFrequency = this._getSplitFrequency(normalisedFrequency, this._getNormalisedFrequency(this.frequencyBoundaries.minFrequency), 1, this.splitPoint);
-
-    const maxFactor = this._scaleFrequency(this._getNormalisedFrequency(this.frequencyBoundaries.minFrequency));
-    var factor = this._scaleFrequency(normalisedFrequency) / maxFactor;
-
-    const fontSize = this.minFontSize + (this.maxFontSize - this.minFontSize) * factor;
+    const normalisedFactor = this._getScaledFrequency(frequency);
+    const fontSize = this.minFontSize + (this.maxFontSize - this.minFontSize) * normalisedFactor;
     return fontSize;
   }
 }
