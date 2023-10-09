@@ -9,7 +9,7 @@ class PageLoader {
     this.maxFontSize = 5;
     this.exponent = 5; // Adjust this to control the exponential scaling
     this.splitPoint = 0.5; // Adjust this to control where the exponential scaling starts
-    this.lastLoadedPage = 0;
+    this.lastLoadedPage = 233;
 
     const pageNumbers = new Set();
     for (let i = 0; i < storyOutline.length; i++) {
